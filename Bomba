@@ -1,13 +1,9 @@
 -- ============================================
--- DROP BOMB NOS PÉS (Laser para baixo - Sem Bug)
+-- BOTÃO PARA JOGAR BOMBA NOS PÉS (Limpo)
 -- ============================================
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-
-local ultimoUso = 0
-local tempoCooldown = 19 -- Cooldown da bomba
 
 -- ============================================
 -- BOTÃO FLUTUANTE
@@ -31,7 +27,9 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = btn
 
--- Arrastar botão
+-- ============================================
+-- ARRASTAR O BOTÃO
+-- ============================================
 local dragging, dragStart, startPos, isMoved
 btn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -56,27 +54,10 @@ btn.InputChanged:Connect(function(input)
     end
 end)
 
--- Atualiza o botão com o tempo restante
-RunService.Heartbeat:Connect(function()
-    local tempoPassado = tick() - ultimoUso
-    if tempoPassado < tempoCooldown then
-        local restante = math.ceil(tempoCooldown - tempoPassado)
-        btn.Text = tostring(restante) .. "s"
-        btn.TextSize = 20
-        btn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-    else
-        btn.Text = "💣"
-        btn.TextSize = 30
-        btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    end
-end)
-
 -- ============================================
--- LÓGICA DO ARREMESSO (Laser pra baixo)
+-- LÓGICA DE JOGAR A BOMBA
 -- ============================================
 btn.MouseButton1Click:Connect(function()
-    if tick() - ultimoUso < tempoCooldown then return end -- Ainda no cooldown
-
     local char = LocalPlayer.Character
     if not char then return end
 
@@ -90,10 +71,8 @@ btn.MouseButton1Click:Connect(function()
         end
     end
 
-    if not bombTool then
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aviso", Text = "Equipe a bomba primeiro!", Duration = 2})
-        return
-    end
+    -- Se não tiver a bomba na mão, não faz nada
+    if not bombTool then return end
 
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
@@ -105,27 +84,16 @@ btn.MouseButton1Click:Connect(function()
     end
 
     if remoteEvent then
-        ultimoUso = tick()
+        -- Calcula a posição exata do pé (3.2 studs abaixo do seu corpo)
+        local dropPos = Vector3.new(hrp.Position.X, hrp.Position.Y - 3.2, hrp.Position.Z)
         
-        -- LASER PRA BAIXO: Acha o chão exato entre as pernas
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {char} -- Ignora o próprio boneco
-        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        -- Traça um raio do peito até 10 studs pra baixo
-        local rayResult = workspace:Raycast(hrp.Position, Vector3.new(0, -10, 0), rayParams)
-        
-        local dropPos
-        if rayResult then
-            dropPos = rayResult.Position -- Pega a posição exata do chão
-        else
-            dropPos = hrp.Position - Vector3.new(0, 3.5, 0) -- Reserva (se estiver no ar)
-        end
-        
-        -- Dispara a bomba no chão
+        -- Joga a bomba
         remoteEvent:FireServer(CFrame.new(dropPos), 50)
         
-        -- Efeito visual (pisca branco)
+        -- Efeito visual no botão (pisca branco)
         btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        task.delay(0.1, function() 
+            btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
+        end)
     end
 end)
