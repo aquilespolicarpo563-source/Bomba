@@ -1,0 +1,114 @@
+-- ============================================
+-- DROP BOMB DIRETO NO PÉ (Sem enrolação)
+-- ============================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local ultimoUso = 0
+local tempoCooldown = 19
+
+-- ============================================
+-- BOTÃO FLUTUANTE
+-- ============================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 65, 0, 65)
+btn.Position = UDim2.new(0, 50, 0, 150)
+btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+btn.BackgroundTransparency = 0.1
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 30
+btn.Text = "💣"
+btn.Parent = ScreenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)
+corner.Parent = btn
+
+-- Arrastar botão
+local dragging, dragStart, startPos, isMoved
+btn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        isMoved = false
+        dragStart = input.Position
+        startPos = btn.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then 
+                dragging = false 
+                if not isMoved then btn.MouseButton1Click:Fire() end
+            end
+        end)
+    end
+end)
+
+btn.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        if (input.Position - dragStart).Magnitude > 10 then isMoved = true end
+        local delta = input.Position - dragStart
+        btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Contador
+RunService.Heartbeat:Connect(function()
+    local tempoPassado = tick() - ultimoUso
+    if tempoPassado < tempoCooldown then
+        local restante = math.ceil(tempoCooldown - tempoPassado)
+        btn.Text = tostring(restante) .. "s"
+        btn.TextSize = 20
+        btn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+    else
+        btn.Text = "💣"
+        btn.TextSize = 30
+        btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end)
+
+-- ============================================
+-- LÓGICA (Direto no pé)
+-- ============================================
+btn.MouseButton1Click:Connect(function()
+    if tick() - ultimoUso < tempoCooldown then return end
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local bombTool = nil
+    for _, tool in ipairs(char:GetChildren()) do
+        local nome = string.lower(tool.Name)
+        if tool:IsA("Tool") and (nome:find("bomb") or nome:find("fake")) then
+            bombTool = tool
+            break
+        end
+    end
+
+    if not bombTool then
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aviso", Text = "Equipe a bomba primeiro!", Duration = 2})
+        return
+    end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local remoteEvent = nil
+    for _, desc in ipairs(bombTool:GetDescendants()) do
+        if desc:IsA("RemoteEvent") then remoteEvent = desc break end
+    end
+
+    if remoteEvent then
+        ultimoUso = tick()
+        
+        -- AQUI: Pega a posição do seu corpo e abaixa 3.5 studs (exatamente no pé)
+        local dropPos = Vector3.new(hrp.Position.X, hrp.Position.Y - 3.5, hrp.Position.Z)
+        
+        remoteEvent:FireServer(CFrame.new(dropPos), 50)
+        
+        btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
